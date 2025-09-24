@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fire Guardian Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            border-bottom: 2px solid #06b6d4;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 1;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 100px);
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .map-section {
+            flex: 0 0 60%;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .map-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .map-background {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.8) contrast(1.1);
+            background: linear-gradient(135deg, #065f46 0%, #047857 30%, #059669 60%, #10b981 100%);
+            background-size: 400% 400%;
+            animation: forestGradient 20s ease infinite;
+        }
+
+        @keyframes forestGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .sensor-node {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #10b981;
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.8);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sensor-node.online {
+            animation: pulse-green 2s infinite;
+        }
+
+        .sensor-node.fire-alert {
+            background: #ef4444;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 1);
+            animation: pulse-red 1s infinite;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 20px rgba(16, 185, 129, 0.8);
+            }
+            50% { 
+                transform: scale(1.2);
+                box-shadow: 0 0 30px rgba(16, 185, 129, 1);
+            }
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 30px rgba(239, 68, 68, 1);
+            }
+            50% { 
+                transform: scale(1.3);
+                box-shadow: 0 0 40px rgba(239, 68, 68, 1);
+            }
+        }
+
+        #node-1 { top: 20%; left: 25%; }
+        #node-2 { top: 35%; left: 70%; }
+        #node-3 { top: 65%; left: 45%; }
+        #node-4 { top: 80%; left: 20%; }
+
+        .charts-section {
+            flex: 0 0 40%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .chart-container {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 15px;
+            padding: 18px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .chart-container.paused {
+            border: 2px solid #06b6d4;
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .pause-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #06b6d4;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            display: none;
+        }
+
+        .chart-container.paused .pause-indicator {
+            display: block;
+            animation: pulse 2s infinite;
+        }
+
+        .current-value {
+            position: absolute;
+            top: 40px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #06b6d4;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: none;
+            border: 1px solid #06b6d4;
+        }
+
+        .chart-container.paused .current-value {
+            display: block;
+        }
+
+        .chart-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.8), transparent);
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-align: center;
+            color: #e2e8f0;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .chart-canvas {
+            width: 100% !important;
+            height: 140px !important;
+        }
+
+        .fire-alert-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(239, 68, 68, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+            animation: modalSlideIn 0.5s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .alert-content {
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            color: #1f2937;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            transform: scale(1);
+            animation: alertPulse 2s infinite;
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .alert-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: iconShake 0.5s infinite;
+        }
+
+        @keyframes iconShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .alert-title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #dc2626;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .alert-location {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            color: #374151;
+        }
+
+        .close-btn {
+            background: linear-gradient(45deg, #dc2626, #ef4444);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+
+        .close-btn:hover {
+            background: linear-gradient(45deg, #b91c1c, #dc2626);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6);
+        }
+
+        .simulate-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .simulate-btn:hover {
+            background: linear-gradient(45deg, #d97706, #b45309);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(245, 158, 11, 0.6);
+        }
+
+        .simulate-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(16, 185, 129, 0.2);
+            border: 2px solid #10b981;
+            border-radius: 25px;
+            padding: 8px 15px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #10b981;
+        }
+
+        .node-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+        }
+
+        .sensor-node.active {
+            border-color: #06b6d4;
+            box-shadow: 0 0 25px rgba(6, 182, 212, 1);
+            transform: scale(1.1);
+        }
+
+        .node-info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #06b6d4;
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            font-size: 0.9rem;
+            min-width: 200px;
+            display: none;
+            z-index: 10;
+        }
+
+        .node-info-panel.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .node-info-title {
+            font-weight: bold;
+            color: #06b6d4;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .node-data-item {
+            margin: 4px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .data-label {
+            color: #cbd5e1;
+        }
+
+        .data-value {
+            font-weight: bold;
+            color: #e2e8f0;
+        }
+
+        .serial-controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(30, 41, 59, 0.9);
+            border: 2px solid #06b6d4;
+            border-radius: 15px;
+            padding: 15px;
+            color: white;
+            font-size: 0.9rem;
+            z-index: 100;
+            min-width: 280px;
+            backdrop-filter: blur(10px);
+        }
+
+        .serial-title {
+            font-weight: bold;
+            color: #06b6d4;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .connect-btn {
+            background: linear-gradient(45deg, #06b6d4, #0891b2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .connect-btn:hover {
+            background: linear-gradient(45deg, #0891b2, #0e7490);
+            transform: translateY(-1px);
+        }
+
+        .connect-btn:disabled {
+            background: #374151;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .serial-status {
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+            padding: 5px 8px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .status-disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid #ef4444;
+        }
+
+        .status-connected {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid #10b981;
+        }
+
+        .last-data {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            max-height: 60px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+
+        .toggle-serial {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            color: #06b6d4;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+
+        .serial-controls.minimized {
+            height: 40px;
+            overflow: hidden;
+        }
+
+        .serial-controls.minimized .serial-content {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .map-section {
+                flex: none;
+                height: 400px;
+            }
+            
+            .charts-section {
+                flex: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="serial-controls" id="serialControls">
+        <button class="toggle-serial" onclick="toggleSerialPanel()">📡</button>
+        <div class="serial-content">
+            <div class="serial-title">🔌 ESP32 Serial Connection</div>
+            <button class="connect-btn" id="connectBtn" onclick="connectSerial()">Connect to ESP32</button>
+            <div class="serial-status status-disconnected" id="serialStatus">Disconnected</div>
+            <div class="last-data" id="lastData">No data received...</div>
+        </div>
+    </div>
+
+    <div class="header">
+        <h1>Fire Guardian</h1>
+        <div class="status-indicator">● SYSTEM ONLINE</div>
+    </div>
+
+    <div class="main-container">
+        <div class="map-section">
+            <div class="map-container">
+                <div class="map-background"></div>
+                <div class="forest-overlay">
+                    <div class="tree-icon" style="top: 15%; left: 20%;">🌲</div>
+                    <div class="tree-icon" style="top: 25%; left: 60%;">🌳</div>
+                    <div class="tree-icon" style="top: 40%; left: 30%;">🌲</div>
+                    <div class="tree-icon" style="top: 50%; left: 75%;">🌳</div>
+                    <div class="tree-icon" style="top: 70%; left: 15%;">🌲</div>
+                    <div class="tree-icon" style="top: 80%; left: 65%;">🌳</div>
+                    <div class="tree-icon" style="top: 35%; left: 80%;">🌲</div>
+                    <div class="tree-icon" style="top: 60%; left: 50%;">🌳</div>
+                </div>
+                
+                <div id="node-1" class="sensor-node online">
+                    <div class="node-label">Node 1</div>
+                </div>
+                <div id="node-2" class="sensor-node online">
+                    <div class="node-label">Node 2</div>
+                </div>
+                <div id="node-3" class="sensor-node online">
+                    <div class="node-label">Node 3</div>
+                </div>
+                <div id="node-4" class="sensor-node online">
+                    <div class="node-label">Node 4</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-container" onclick="toggleChartPause('temperature')">
+                <div class="pause-indicator">PAUSED</div>
+                <div class="chart-title">🌡️ Temperature (°C) - Threshold: 40°C</div>
+                <canvas id="temperatureChart" class="chart-canvas"></canvas>
+            </div>
+
+            <div class="chart-container" onclick="toggleChartPause('humidity')">
+                <div class="pause-indicator">PAUSED</div>
+                <div class="chart-title">💧 Humidity (%) - Threshold: <30%</div>
+                <canvas id="humidityChart" class="chart-canvas"></canvas>
+            </div>
+
+            <div class="chart-container" onclick="toggleChartPause('light')">
+                <div class="pause-indicator">PAUSED</div>
+                <div class="chart-title">☀️ Light Intensity (Lux) - Threshold: 700 Lux</div>
+                <canvas id="lightChart" class="chart-canvas"></canvas>
+            </div>
+
+            <div class="chart-container" onclick="toggleChartPause('gas')">
+                <div class="pause-indicator">PAUSED</div>
+                <div class="chart-title">🌫️ Gas Sensor (ppm) - Threshold: 50 ppm</div>
+                <canvas id="gasChart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="fireAlert" class="fire-alert-modal">
+        <div class="alert-content">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-title">FIRE ALERT DETECTED!</div>
+            <div class="alert-location">Location: Node 3</div>
+            <button class="close-btn" onclick="closeAlert()">Close Alert</button>
+        </div>
+    </div>
+
+    <!-- <button class="simulate-btn" onclick="triggerFireAlert()">🔥 Simulate Fire Event</button> -->
+
+    <script>
+        // Chart configurations and initialization
+        const chartConfig = {
+            type: 'line',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'point'
+                },
+                scales: {
+                    x: {
+                        display: false,
+                        grid: { display: false }
+                    },
+                    y: {
+                        grid: { 
+                            color: 'rgba(255, 255, 255, 0.1)',
+                            lineWidth: 1
+                        },
+                        ticks: {
+                            color: '#cbd5e1',
+                            font: { size: 10 }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#ffffff',
+                        borderColor: '#06b6d4',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        displayColors: false,
+                        callbacks: {
+                            title: function(context) {
+                                return 'Sensor Reading';
+                            },
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                const dataset = context.dataset;
+                                let unit = '';
+                                
+                                if (dataset.label === 'Temperature') unit = '°C';
+                                else if (dataset.label === 'Humidity') unit = '%';
+                                else if (dataset.label === 'Light Intensity') unit = ' Lux';
+                                else if (dataset.label === 'Gas Level') unit = ' ppm';
+                                
+                                return `${dataset.label}: ${value.toFixed(1)}${unit}`;
+                            }
+                        }
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 4,
+                        hoverRadius: 8,
+                        hitRadius: 10,
+                        borderWidth: 2
+                    },
+                    line: {
+                        borderWidth: 3,
+                        tension: 0.4
+                    }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeInOutQuad'
+                }
+            }
+        };
+
+        // Threshold values for fire detection
+        const TEMP_THRESHOLD = 40; // 40°C
+        const HUMIDITY_THRESHOLD = 30; // 30% (fire detected when humidity drops below)
+        const LIGHT_THRESHOLD = 700; // 700 Lux
+        const GAS_THRESHOLD = 50; // 50 ppm (smoke/CO detection)
+
+        // Initialize charts
+        const tempChart = new Chart(document.getElementById('temperatureChart'), {
+            ...chartConfig,
+            data: {
+                labels: Array.from({length: 20}, (_, i) => i),
+                datasets: [{
+                    label: 'Temperature',
+                    data: Array.from({length: 20}, () => Math.random() * 10 + 20),
+                    borderColor: '#f97316',
+                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                    pointBackgroundColor: '#f97316',
+                    pointBorderColor: '#ffffff',
+                    fill: true,
+                    order: 2
+                }, {
+                    label: 'Threshold',
+                    data: Array.from({length: 20}, () => TEMP_THRESHOLD),
+                    borderColor: '#dc2626',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    pointHitRadius: 0,
+                    fill: false,
+                    order: 1
+                }]
+            },
+            options: {
+                ...chartConfig.options,
+                scales: {
+                    ...chartConfig.options.scales,
+                    y: {
+                        ...chartConfig.options.scales.y,
+                        min: 10,
+                        max: 70,
+                        ticks: {
+                            ...chartConfig.options.scales.y.ticks,
+                            stepSize: 10
+                        }
+                    }
+                }
+            }
+        });
+
+        const humidityChart = new Chart(document.getElementById('humidityChart'), {
+            ...chartConfig,
+            data: {
+                labels: Array.from({length: 20}, (_, i) => i),
+                datasets: [{
+                    label: 'Humidity',
+                    data: Array.from({length: 20}, () => Math.random() * 20 + 40),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    pointBackgroundColor: '#3b82f6',
+                    pointBorderColor: '#ffffff',
+                    fill: true,
+                    order: 2
+                }, {
+                    label: 'Threshold',
+                    data: Array.from({length: 20}, () => HUMIDITY_THRESHOLD),
+                    borderColor: '#dc2626',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    pointHitRadius: 0,
+                    fill: false,
+                    order: 1
+                }]
+            },
+            options: {
+                ...chartConfig.options,
+                scales: {
+                    ...chartConfig.options.scales,
+                    y: {
+                        ...chartConfig.options.scales.y,
+                        min: 0,
+                        max: 90,
+                        ticks: {
+                            ...chartConfig.options.scales.y.ticks,
+                            stepSize: 15
+                        }
+                    }
+                }
+            }
+        });
+
+        const lightChart = new Chart(document.getElementById('lightChart'), {
+            ...chartConfig,
+            data: {
+                labels: Array.from({length: 20}, (_, i) => i),
+                datasets: [{
+                    label: 'Light Intensity',
+                    data: Array.from({length: 20}, () => Math.random() * 500 + 200),
+                    borderColor: '#eab308',
+                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                    pointBackgroundColor: '#eab308',
+                    pointBorderColor: '#ffffff',
+                    fill: true,
+                    order: 2
+                }, {
+                    label: 'Threshold',
+                    data: Array.from({length: 20}, () => LIGHT_THRESHOLD),
+                    borderColor: '#dc2626',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    pointHitRadius: 0,
+                    fill: false,
+                    order: 1
+                }]
+            },
+            options: {
+                ...chartConfig.options,
+                scales: {
+                    ...chartConfig.options.scales,
+                    y: {
+                        ...chartConfig.options.scales.y,
+                        min: 0,
+                        max: 1200,
+                        ticks: {
+                            ...chartConfig.options.scales.y.ticks,
+                            stepSize: 200
+                        }
+                    }
+                }
+            }
+        });
+
+        const gasChart = new Chart(document.getElementById('gasChart'), {
+            ...chartConfig,
+            data: {
+                labels: Array.from({length: 20}, (_, i) => i),
+                datasets: [{
+                    label: 'Gas Level',
+                    data: Array.from({length: 20}, () => Math.random() * 20 + 10),
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    pointBackgroundColor: '#8b5cf6',
+                    pointBorderColor: '#ffffff',
+                    fill: true,
+                    order: 2
+                }, {
+                    label: 'Threshold',
+                    data: Array.from({length: 20}, () => GAS_THRESHOLD),
+                    borderColor: '#dc2626',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    pointHitRadius: 0,
+                    fill: false,
+                    order: 1
+                }]
+            },
+            options: {
+                ...chartConfig.options,
+                scales: {
+                    ...chartConfig.options.scales,
+                    y: {
+                        ...chartConfig.options.scales.y,
+                        min: 0,
+                        max: 100,
+                        ticks: {
+                            ...chartConfig.options.scales.y.ticks,
+                            stepSize: 20
+                        }
+                    }
+                }
+            }
+        });
+
+        // Global state
+        let fireAlertActive = false;
+        let baseTemperature = 25;
+        let baseHumidity = 55;
+        let baseLight = 400;
+        let baseGas = 15;
+        let isPaused = false;
+        let activeNode = null;
+        let pausedCharts = {
+            temperature: false,
+            humidity: false,
+            light: false,
+            gas: false
+        };
+
+        // Serial communication variables
+        let serialPort = null;
+        let serialReader = null;
+        let isSerialConnected = false;
+        let useSerialData = false;
+        let lastSerialData = {
+            temperature: null,
+            humidity: null,
+            light: null,
+            gas: null,
+            timestamp: null
+        };
+
+        // Node-specific data (simulating different sensor locations)
+        const nodeData = {
+            'node-1': { temp: 22, humidity: 65, light: 350, gas: 12, status: 'Normal' },
+            'node-2': { temp: 28, humidity: 45, light: 480, gas: 18, status: 'Normal' },
+            'node-3': { temp: 25, humidity: 55, light: 400, gas: 15, status: 'Normal' },
+            'node-4': { temp: 24, humidity: 60, light: 380, gas: 14, status: 'Normal' }
+        };
+
+        // Update charts with new data
+        function updateCharts() {
+            if (isPaused) return; // Don't update if globally paused
+
+            // Use data from active node, serial data, or defaults
+            let currentNodeData = activeNode ? nodeData[activeNode] : null;
+            
+            // Generate new data points
+            let tempValue, humidityValue, lightValue, gasValue;
+
+            if (useSerialData && lastSerialData.temperature !== null) {
+                // Use real ESP32 serial data directly without random variations
+                tempValue = lastSerialData.temperature;
+                humidityValue = lastSerialData.humidity;
+                lightValue = lastSerialData.light;
+                gasValue = lastSerialData.gas;
+            } else if (fireAlertActive) {
+                // During fire alert, show elevated readings
+                tempValue = Math.random() * 15 + 45;
+                humidityValue = Math.random() * 15 + 15;
+                lightValue = Math.random() * 200 + 750;
+                gasValue = Math.random() * 30 + 60;
+            } else if (currentNodeData) {
+                // Use node-specific data with small variations
+                tempValue = currentNodeData.temp + (Math.random() * 6 - 3);
+                humidityValue = currentNodeData.humidity + (Math.random() * 10 - 5);
+                lightValue = currentNodeData.light + (Math.random() * 100 - 50);
+                gasValue = currentNodeData.gas + (Math.random() * 6 - 3);
+            } else {
+                // Normal conditions (default)
+                tempValue = Math.random() * 10 + baseTemperature;
+                humidityValue = Math.random() * 20 + baseHumidity;
+                lightValue = Math.random() * 200 + baseLight;
+                gasValue = Math.random() * 20 + baseGas;
+            }
+
+            // Ensure values stay within reasonable bounds
+            tempValue = Math.max(0, Math.min(70, tempValue));
+            humidityValue = Math.max(0, Math.min(100, humidityValue));
+            lightValue = Math.max(0, Math.min(1200, lightValue));
+            gasValue = Math.max(0, Math.min(120, gasValue));
+
+            // Update temperature chart
+            if (!pausedCharts.temperature) {
+                tempChart.data.datasets[0].data.push(tempValue);
+                tempChart.data.datasets[0].data.shift();
+                tempChart.data.datasets[1].data.push(TEMP_THRESHOLD);
+                tempChart.data.datasets[1].data.shift();
+                tempChart.update('none');
+                updateCurrentValue('temperature', tempValue);
+            }
+
+            // Update humidity chart
+            if (!pausedCharts.humidity) {
+                humidityChart.data.datasets[0].data.push(humidityValue);
+                humidityChart.data.datasets[0].data.shift();
+                humidityChart.data.datasets[1].data.push(HUMIDITY_THRESHOLD);
+                humidityChart.data.datasets[1].data.shift();
+                humidityChart.update('none');
+                updateCurrentValue('humidity', humidityValue);
+            }
+
+            // Update light chart
+            if (!pausedCharts.light) {
+                lightChart.data.datasets[0].data.push(lightValue);
+                lightChart.data.datasets[0].data.shift();
+                lightChart.data.datasets[1].data.push(LIGHT_THRESHOLD);
+                lightChart.data.datasets[1].data.shift();
+                lightChart.update('none');
+                updateCurrentValue('light', lightValue);
+            }
+
+            // Update gas chart
+            if (!pausedCharts.gas) {
+                gasChart.data.datasets[0].data.push(gasValue);
+                gasChart.data.datasets[0].data.shift();
+                gasChart.data.datasets[1].data.push(GAS_THRESHOLD);
+                gasChart.data.datasets[1].data.shift();
+                gasChart.update('none');
+                updateCurrentValue('gas', gasValue);
+            }
+
+            // Check for automatic fire detection
+            if (!fireAlertActive && (tempValue > TEMP_THRESHOLD || humidityValue < HUMIDITY_THRESHOLD || lightValue > LIGHT_THRESHOLD || gasValue > GAS_THRESHOLD)) {
+                setTimeout(() => {
+                    if (!fireAlertActive) {
+                        triggerFireAlert();
+                    }
+                }, 500);
+            }
+        }
+
+        // Modify connect button to toggle connection
+        async function connectSerial() {
+            if (isSerialConnected) {
+                await disconnectSerial();
+                return;
+            }
+            
+            if ('serial' in navigator) {
+                try {
+                    const connectBtn = document.getElementById('connectBtn');
+                    const statusDiv = document.getElementById('serialStatus');
+                    
+                    connectBtn.disabled = true;
+                    connectBtn.textContent = 'Connecting...';
+                    
+                    // Request serial port
+                    serialPort = await navigator.serial.requestPort();
+                    await serialPort.open({ baudRate: 115200 });
+                    
+                    // Update UI
+                    isSerialConnected = true;
+                    useSerialData = true;
+                    connectBtn.textContent = 'Disconnect';
+                    connectBtn.disabled = false;
+                    statusDiv.textContent = 'Connected to ESP32';
+                    statusDiv.className = 'serial-status status-connected';
+                    
+                    // Start reading data
+                    startSerialReading();
+                    
+                } catch (error) {
+                    console.error('Serial connection failed:', error);
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('connectBtn').textContent = 'Connect to ESP32';
+                    updateSerialStatus('Connection failed', false);
+                }
+            } else {
+                alert('Web Serial API not supported. Please use Chrome/Edge browser.');
+            }
+        }
+
+        async function startSerialReading() {
+            const textDecoder = new TextDecoderStream();
+            const readableStreamClosed = serialPort.readable.pipeTo(textDecoder.writable);
+            serialReader = textDecoder.readable.getReader();
+            
+            let buffer = '';
+            
+            try {
+                while (true) {
+                    const { value, done } = await serialReader.read();
+                    if (done) break;
+                    
+                    buffer += value;
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+                    
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            parseSerialData(line.trim());
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Serial reading error:', error);
+                updateSerialStatus('Reading error: ' + error.message, false);
+            }
+        }
+
+        function parseSerialData(data) {
+            try {
+                // Expected format: "TEMP:25.4,HUMIDITY:60.2,LIGHT:450,GAS:18"
+                // or JSON format: {"temp":25.4,"humidity":60.2,"light":450,"gas":18}
+                
+                let parsedData = {};
+                
+                if (data.startsWith('{')) {
+                    // JSON format
+                    parsedData = JSON.parse(data);
+                    lastSerialData.temperature = parsedData.temp || parsedData.temperature;
+                    lastSerialData.humidity = parsedData.humidity;
+                    lastSerialData.light = parsedData.light;
+                    lastSerialData.gas = parsedData.gas;
+                } else {
+                    // CSV or key:value format
+                    const parts = data.split(',');
+                    parts.forEach(part => {
+                        const [key, value] = part.split(':');
+                        if (key && value) {
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                                switch(key.trim().toUpperCase()) {
+                                    case 'TEMP':
+                                    case 'TEMPERATURE':
+                                        lastSerialData.temperature = numValue;
+                                        break;
+                                    case 'HUMIDITY':
+                                    case 'HUM':
+                                        lastSerialData.humidity = numValue;
+                                        break;
+                                    case 'LIGHT':
+                                    case 'LUX':
+                                        lastSerialData.light = numValue;
+                                        break;
+                                    case 'GAS':
+                                    case 'SMOKE':
+                                        lastSerialData.gas = numValue;
+                                        break;
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                lastSerialData.timestamp = new Date().toLocaleTimeString();
+                
+                // Update display
+                const lastDataDiv = document.getElementById('lastData');
+                lastDataDiv.innerHTML = `
+                    <strong>Latest:</strong> ${lastSerialData.timestamp}<br>
+                    T: ${lastSerialData.temperature?.toFixed(1)}°C | H: ${lastSerialData.humidity?.toFixed(1)}%<br>
+                    L: ${Math.round(lastSerialData.light)} Lux | G: ${lastSerialData.gas?.toFixed(1)} ppm
+                `;
+
+                // If Node 3 is active and we're getting serial data, update its status
+                if (activeNode === 'node-3') {
+                    updateNodeDataFromSerial();
+                }
+                
+            } catch (error) {
+                console.error('Data parsing error:', error);
+                document.getElementById('lastData').innerHTML = `Parse error: ${data.substring(0, 50)}...`;
+            }
+        }
+
+        function updateNodeDataFromSerial() {
+            // Update Node 3 data with real sensor values for display consistency
+            if (lastSerialData.temperature !== null) {
+                nodeData['node-3'].temp = lastSerialData.temperature;
+                nodeData['node-3'].humidity = lastSerialData.humidity;
+                nodeData['node-3'].light = lastSerialData.light;
+                nodeData['node-3'].gas = lastSerialData.gas;
+                nodeData['node-3'].status = 'Live Data';
+                
+                // Refresh node info panel if it's visible
+                const infoPanel = document.querySelector('.node-info-panel.active');
+                if (infoPanel && activeNode === 'node-3') {
+                    showNodeInfo('node-3');
+                }
+            }
+        }
+
+        function updateSerialStatus(message, connected) {
+            const statusDiv = document.getElementById('serialStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = connected ? 'serial-status status-connected' : 'serial-status status-disconnected';
+        }
+
+        async function disconnectSerial() {
+            if (serialReader) {
+                await serialReader.cancel();
+                serialReader = null;
+            }
+            if (serialPort) {
+                await serialPort.close();
+                serialPort = null;
+            }
+            
+            isSerialConnected = false;
+            useSerialData = false;
+            
+            // Update UI
+            const connectBtn = document.getElementById('connectBtn');
+            connectBtn.textContent = 'Connect to ESP32';
+            connectBtn.disabled = false;
+            updateSerialStatus('Disconnected', false);
+            document.getElementById('lastData').textContent = 'No data received...';
+        }
+
+        function toggleSerialPanel() {
+            const panel = document.getElementById('serialControls');
+            panel.classList.toggle('minimized');
+        }
+
+        // Toggle chart pause state
+        function toggleChartPause(chartType) {
+            pausedCharts[chartType] = !pausedCharts[chartType];
+            const container = document.querySelector(`#${chartType}Chart`).parentElement;
+            
+            if (pausedCharts[chartType]) {
+                container.classList.add('paused');
+            } else {
+                container.classList.remove('paused');
+            }
+        }
+
+        // Update current value display
+        function updateCurrentValue(chartType, value) {
+            const container = document.querySelector(`#${chartType}Chart`).parentElement;
+            let valueDisplay = container.querySelector('.current-value');
+            
+            if (!valueDisplay) {
+                valueDisplay = document.createElement('div');
+                valueDisplay.className = 'current-value';
+                container.appendChild(valueDisplay);
+            }
+            
+            let unit = '';
+            let formattedValue = value.toFixed(1);
+            
+            switch(chartType) {
+                case 'temperature': unit = '°C'; break;
+                case 'humidity': unit = '%'; break;
+                case 'light': unit = ' Lux'; formattedValue = Math.round(value); break;
+                case 'gas': unit = ' ppm'; formattedValue = Math.round(value); break;
+            }
+            
+            valueDisplay.textContent = `${formattedValue}${unit}`;
+        }
+
+        // Select node and update data source
+        function selectNode(nodeId) {
+            // Clear previous selection
+            document.querySelectorAll('.sensor-node').forEach(node => {
+                node.classList.remove('active');
+            });
+            
+            // Hide previous node info
+            const prevInfo = document.querySelector('.node-info-panel.active');
+            if (prevInfo) prevInfo.classList.remove('active');
+            
+            // Select new node
+            if (activeNode === nodeId) {
+                // Deselect if clicking same node
+                activeNode = null;
+                return;
+            }
+            
+            activeNode = nodeId;
+            const selectedNode = document.getElementById(nodeId);
+            selectedNode.classList.add('active');
+            
+            // Show node info panel
+            showNodeInfo(nodeId);
+        }
+
+        // Show node information panel
+        function showNodeInfo(nodeId) {
+            let infoPanel = document.querySelector('.node-info-panel');
+            
+            if (!infoPanel) {
+                infoPanel = document.createElement('div');
+                infoPanel.className = 'node-info-panel';
+                document.querySelector('.map-container').appendChild(infoPanel);
+            }
+            
+            const data = nodeData[nodeId];
+            const nodeNum = nodeId.split('-')[1];
+            
+            infoPanel.innerHTML = `
+                <div class="node-info-title">📡 Node ${nodeNum} Data</div>
+                <div class="node-data-item">
+                    <span class="data-label">Temperature:</span>
+                    <span class="data-value">${data.temp}°C</span>
+                </div>
+                <div class="node-data-item">
+                    <span class="data-label">Humidity:</span>
+                    <span class="data-value">${data.humidity}%</span>
+                </div>
+                <div class="node-data-item">
+                    <span class="data-label">Light:</span>
+                    <span class="data-value">${data.light} Lux</span>
+                </div>
+                <div class="node-data-item">
+                    <span class="data-label">Gas Level:</span>
+                    <span class="data-value">${data.gas} ppm</span>
+                </div>
+                <div class="node-data-item">
+                    <span class="data-label">Status:</span>
+                    <span class="data-value" style="color: ${data.status === 'Normal' ? '#10b981' : '#ef4444'}">${data.status}</span>
+                </div>
+            `;
+            
+            infoPanel.classList.add('active');
+        }
+
+        // Trigger fire alert simulation
+        function triggerFireAlert() {
+            if (fireAlertActive) return; // Prevent multiple alerts
+
+            fireAlertActive = true;
+            
+            // Change node 3 to fire alert state
+            const node3 = document.getElementById('node-3');
+            node3.classList.remove('online');
+            node3.classList.add('fire-alert');
+
+            // Show fire alert modal
+            const modal = document.getElementById('fireAlert');
+            modal.style.display = 'flex';
+
+            // Create temperature spike and gas spike
+            const currentTemp = tempChart.data.datasets[0].data[tempChart.data.datasets[0].data.length - 1];
+            const currentGas = gasChart.data.datasets[0].data[gasChart.data.datasets[0].data.length - 1];
+            const spikeTemp = currentTemp + 25; // Sharp increase
+            const spikeGas = currentGas + 40; // Sharp gas increase
+            
+            tempChart.data.datasets[0].data[tempChart.data.datasets[0].data.length - 1] = spikeTemp;
+            tempChart.update();
+            
+            gasChart.data.datasets[0].data[gasChart.data.datasets[0].data.length - 1] = spikeGas;
+            gasChart.update();
+
+            // Play alert sound simulation (visual feedback)
+            document.querySelector('.simulate-btn').style.background = 'linear-gradient(45deg, #dc2626, #ef4444)';
+            document.querySelector('.simulate-btn').innerHTML = '🚨 FIRE DETECTED!';
+        }
+
+        // Close alert modal
+        function closeAlert() {
+            const modal = document.getElementById('fireAlert');
+            modal.style.display = 'none';
+            
+            // Reset fire alert after 10 seconds
+            setTimeout(() => {
+                fireAlertActive = false;
+                const node3 = document.getElementById('node-3');
+                node3.classList.remove('fire-alert');
+                node3.classList.add('online');
+                
+                // Reset button
+                document.querySelector('.simulate-btn').style.background = 'linear-gradient(45deg, #f59e0b, #d97706)';
+                document.querySelector('.simulate-btn').innerHTML = '🔥 Simulate Fire Event';
+            }, 10000);
+        }
+
+        // Initialize real-time updates
+        setInterval(updateCharts, 2000);
+
+        // Add some interactive features
+        document.querySelectorAll('.sensor-node').forEach(node => {
+            node.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (this.id === 'node-3' && this.classList.contains('fire-alert')) {
+                    // Show alert if clicking on fire node
+                    document.getElementById('fireAlert').style.display = 'flex';
+                } else {
+                    // Select node and show its data
+                    selectNode(this.id);
+                }
+            });
+        });
+
+        // Click outside to deselect node
+        document.querySelector('.map-container').addEventListener('click', function(e) {
+            if (e.target === this || e.target.classList.contains('map-background') || e.target.classList.contains('forest-overlay')) {
+                if (activeNode) {
+                    selectNode(activeNode); // This will deselect
+                }
+            }
+        });
+
+        // Add keyboard shortcut for demo
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'f' || event.key === 'F') {
+                triggerFireAlert();
+            }
+            if (event.key === 'Escape') {
+                closeAlert();
+            }
+        });
+
+        // Initialize charts with real data if available
+        function initializeChartsWithSerialData() {
+            for (let i = 0; i < 20; i++) {
+                let tempValue = lastSerialData.temperature || (Math.random() * 10 + 20);
+                let humidityValue = lastSerialData.humidity || (Math.random() * 20 + 40);
+                let lightValue = lastSerialData.light || (Math.random() * 500 + 200);
+                let gasValue = lastSerialData.gas || (Math.random() * 20 + 10);
+
+                tempChart.data.datasets[0].data[i] = tempValue;
+                humidityChart.data.datasets[0].data[i] = humidityValue;
+                lightChart.data.datasets[0].data[i] = lightValue;
+                gasChart.data.datasets[0].data[i] = gasValue;
+            }
+            
+            tempChart.update();
+            humidityChart.update();
+            lightChart.update();
+            gasChart.update();
+        }
+
+        // Initial chart update
+        updateCharts();
+
+        console.log('🌲 Smart Forest Fire Detection Dashboard loaded successfully!');
+        console.log('💡 Press "F" key to quickly trigger fire alert during demo');
+        console.log('🔥 Node 3 is the active prototype sensor');
+        console.log('📡 Connect ESP32 via serial for live sensor data');
+    </script>
+</body>
+</html>
